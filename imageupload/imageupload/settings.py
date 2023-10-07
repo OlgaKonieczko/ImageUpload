@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
+    'rest_framework',
     "myapp.apps.MyappConfig"
 ]
 
@@ -50,7 +51,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    
 ]
+
 
 ROOT_URLCONF = "imageupload.urls"
 
@@ -102,6 +105,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    # Add any other custom authentication backends here if needed
+]
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
