@@ -15,3 +15,6 @@ class UpdateImageSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = Image
 		fields = ('image','title', 'description')
+
+class GnerateExpiringLinkSerializer(serializers.Serializer):
+	seconds= serializers.IntegerField(max_value=30000, min_value=30)

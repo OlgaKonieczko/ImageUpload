@@ -2,59 +2,24 @@ from django.http import HttpResponseRedirect, HttpResponse, HttpResponseForbidde
 from django.http import JsonResponse
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import Image, Profile, Size, Tier
-from .serializers import LoginUserSerializer, UploadImageSerializer, UpdateImageSerializer
+from .models import Image, Profile, Size, Tier, ExpiringLink
+from .utils import manage_images
+from .serializers import LoginUserSerializer, UploadImageSerializer, UpdateImageSerializer, GnerateExpiringLinkSerializer
 from PIL import Image as PILImage
 from io import BytesIO
+from django.shortcuts import redirect
+from django.urls import reverse
 
 # Create your views here.
 def image(request, pk, size):
-    user_profile = Profile.objects.get(user=request.user)
-    user_tier = user_profile.tier
-    tierObj = Tier.objects.get(tier=user_tier)
-    sizes = tierObj.sizes.all().values_list('size', flat=True)
-	
-    try:
-        image_obj = Image.objects.get(pk=pk)
-        if image_obj.image:
-            if int(size) in sizes:
-                if int(size) == 0:
-                    return HttpResponse(image_obj.image.read(), content_type='image/jpeg')
-                else:
-                    # Open the image using PIL
-                    image = PILImage.open(image_obj.image)
-
-                    # Calculate the new height while maintaining the aspect ratio
-                    new_height = int(size)
-                    width_percent = (new_height / float(image.size[1]))
-                    new_width = int((float(image.size[0]) * float(width_percent)))
-
-                    # Resize the image
-                    image = image.resize((new_width, new_height))
-
-                    # Save the resized image to a BytesIO buffer in JPEG format
-                    buffer = BytesIO()
-                    image.save(buffer, format="JPEG")
-
-                    # Move the buffer position to the start
-                    buffer.seek(0)
-
-                    # Return the resized image as an HTTP response
-                    return HttpResponse(buffer.getvalue(), content_type='image/jpeg')
-            else:
-               #return JsonResponse('This user cannot acces image this size.', status=404, safe = False)
-               return HttpResponse(status=404)
-					
-    except Image.DoesNotExist:
-        pass
-
-    return HttpResponse(status=404)
+	return manage_images(request, size, pk)
 
 class loginUserAPIView(APIView):
 	serializer_class = LoginUserSerializer
@@ -118,10 +83,13 @@ class UploadImageAPIView(APIView):
 
     def post(self, request):
         owner = self.request.user
+        tier = Profile.objects.get(user=request.user).tier
         image = request.data.get('image', None)
         title = request.data.get('title', None)
         description = request.data.get('description', None)
+        sizes = tier.sizes.all().values_list('size', flat=True)
         accepted_formats = ('JPEG', 'PNG')
+        links=[]
         #check if file is inserted
         if not image:
             return Response({'message': 'Please insert an image!'}, status=400)
@@ -136,8 +104,20 @@ class UploadImageAPIView(APIView):
         if open_image.format not in accepted_formats:
             return Response({'message': 'Unsupported image format!'}, status=400)
         
-        image_obj = Image.objects.create(owner=owner, image=image, title=title, description=description)
-        return Response({'message': 'Image uploaded.'})
+        image_obj = Image.objects.create(owner=owner, image=image, title=title, description=description, tier=tier)
+
+        if tier.generate_expiring_link:
+            for size in sizes:
+                link = f"Your link for {'original' if size == 0 else f'{size}px'} image: images/{image_obj.id}/{size}"
+                links.append(link)
+                link = f"To generate expiring link for {'original' if size == 0 else f'{size}px'} image access: generate_exp_link/{image_obj.id}/{size}"
+                links.append(link)
+        else:
+            for size in sizes:
+                link = f"Your link for {'original' if size == 0 else f'{size}px'} image: images/{image_obj.id}/{size}"
+                links.append(link)
+        
+        return Response({'message': links})
 
 
 class UpdateImageAPIView(APIView):
@@ -206,3 +186,35 @@ def deleteImage(request, pk):
     else:
         image.delete()
         return Response({'message': 'Image deleted successfully.'})
+
+
+class GenerateExpiringLinkAPIView(APIView):
+    serializer_class = GnerateExpiringLinkSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, size):
+        user_profile = Profile.objects.get(user=request.user)
+        user_tier = user_profile.tier
+
+        if not user_tier.generate_expiring_link:
+            return Response({'message': 'This user is not allowed to generate expiring links'}, status=403) 
+        else:
+            return Response({'message': 'Please insert seconds between 300 and 30000 for expiring list duration'}, status=200)     
+
+    def post(self, request, pk, size):
+        owner = self.request.user
+        image = Image.objects.get(pk=pk)
+        seconds = request.data.get('seconds', None)
+        expiration_seconds = int(seconds) if seconds is not None else 0
+        token = ExpiringLink.generate_link(image, expiration_seconds)
+        link = f"exp_link/{pk}/{size}?token={token}"  # Replace with your resource URL
+        return JsonResponse({'link': link})
+         
+
+def validate_expiring_link(request, pk, size):
+    token = request.GET.get('token', None)
+    if token:
+        expiring_link = ExpiringLink.objects.filter(token=token).first()
+        if expiring_link and expiring_link.expiration_timestamp > timezone.now():
+            return manage_images(request, size, pk)
+    return JsonResponse({'message': 'Invalid or expired link'}, status=400)
