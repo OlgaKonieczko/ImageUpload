@@ -1,5 +1,4 @@
-from django.http import HttpResponseRedirect, HttpResponse, HttpResponseForbidden
-from django.http import JsonResponse
+from django.http import HttpResponseRedirect, HttpResponseForbidden, JsonResponse
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -9,13 +8,10 @@ from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import Image, Profile, Size, Tier, ExpiringLink
+from .models import Image, Profile, ExpiringLink
 from .utils import manage_images
 from .serializers import LoginUserSerializer, UploadImageSerializer, UpdateImageSerializer, GnerateExpiringLinkSerializer
 from PIL import Image as PILImage
-from io import BytesIO
-from django.shortcuts import redirect
-from django.urls import reverse
 
 # Create your views here.
 def image(request, pk, size):
@@ -25,8 +21,8 @@ class loginUserAPIView(APIView):
 	serializer_class = LoginUserSerializer
 	authentication_classes = [SessionAuthentication]
 	permission_classes = [AllowAny]
+     
 	# User is already logged
-
 	def get(self, request):
 		if request.user.is_authenticated:
 			return HttpResponseRedirect('/images')
@@ -57,12 +53,8 @@ class loginUserAPIView(APIView):
 
 class UserLogoutViewAPI(APIView):
 	def get(self, request):
-		response = Response()
 		logout(request)
-		response.data = {
-                'message': 'Logged out successfully.'
-            }
-		return response
+		return Response({'message': 'Logged out successfully.'}, status=200 )
 	
 @api_view(['GET'])
 @login_required
@@ -74,7 +66,7 @@ def images(request):
     for image in images:
         image_list.append(f"Image: {image.title} | Image description: {image.description} | Timestamp: {image.created} | Image ID: {image.id}") 
     # Return the plain text response
-    return Response(image_list)
+    return Response(image_list, status=200)
 
 
 class UploadImageAPIView(APIView):

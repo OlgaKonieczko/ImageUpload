@@ -16,6 +16,6 @@ urlpatterns = [
     path("update/<str:pk>", UpdateImageAPIView.as_view(), name='update_image'),
     path("delete/<str:pk>", views.deleteImage, name='delete_image'),     
     path("generate_exp_link/<str:pk>/<str:size>", GenerateExpiringLinkAPIView.as_view(), name='generate_exp_link'),
-    path('exp_link/<str:pk>/<str:size>', views.validate_expiring_link, name='exp_link')
+    path("exp_link/<str:pk>/<str:size>", views.validate_expiring_link, name='exp_link')
 ]
 
