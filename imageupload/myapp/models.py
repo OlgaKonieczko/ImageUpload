@@ -29,8 +29,8 @@ class Tier(models.Model):
 
 class Image(models.Model):
     image = models.ImageField(blank = True, null = True, upload_to='')
-    owner= models.ForeignKey(User, on_delete=models.CASCADE)
-    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null=True, blank=True)
+    owner= models.ForeignKey(User, on_delete=models.CASCADE, blank = False, null = False)
+    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null=False, blank=False)
     description  = models.TextField(blank = True, null = True)
     title = models.CharField(max_length=200, blank = True, null = True)
     created = models.DateTimeField(auto_now_add=True)
@@ -38,14 +38,14 @@ class Image(models.Model):
      
 
     def __str__(self):
-        return str(self.id)
+        return str(self.title)
     
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=False, blank=False)
     username = models.CharField(max_length=200, null = True, blank = True)
     name = models.CharField(max_length=200, blank = True, null = True)
     email = models.EmailField(max_length=500, blank = True, null = True)
-    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null = True, blank = True) 
+    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null = False, blank = False) 
     id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
 
     def __str__(self):
@@ -63,13 +63,3 @@ class ExpiringLink(models.Model):
         token = secrets.token_hex(16)
         ExpiringLink.objects.create(resource=resource, token=token, expiration_timestamp=expiration_timestamp)
         return token
-
-    # @staticmethod
-    # def validate_link(token):
-    #     try:
-    #         link = ExpiringLink.objects.get(token=token)
-    #         if link.expiration_timestamp > datetime.now():
-    #             return link.resource
-    #     except ExpiringLink.DoesNotExist:
-    #         pass
-    #     return None

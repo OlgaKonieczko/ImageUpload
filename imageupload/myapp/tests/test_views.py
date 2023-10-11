@@ -1,12 +1,8 @@
 from django.test import TestCase, Client
-from django.urls import reverse, resolve
-from myapp.models import Tier, Size, Image, Profile, ExpiringLink
+from django.urls import reverse
 from django.contrib.auth import get_user_model
-import json
-
-# class UpdateImageAPIView(APIView):
-# class GenerateExpiringLinkAPIView(APIView):
-# def validate_expiring_link(request, pk, size):   
+from django.utils import timezone  
+from myapp.models import Tier, Size, Image, Profile, ExpiringLink
 
 class TestViews(TestCase):
     def setUp(self):
@@ -19,9 +15,14 @@ class TestViews(TestCase):
             description='A test image',
          )
         self.size = Size.objects.create(size = 400)
-        self.tier = Tier.objects.create(tier='Enterprise')
+        self.tier = Tier.objects.create(tier='Enterprise', generate_expiring_link = True)
         self.tier.sizes.set([self.size])
         self.profile = Profile.objects.create(user=self.user, tier=self.tier)
+        self.link = ExpiringLink.objects.create(
+            token='test_token',
+            expiration_timestamp=timezone.now() + timezone.timedelta(hours=1), 
+            resource =  self.image
+        )
         
     def test_login_user_view(self):
         response = self.client.get(reverse('images'))
@@ -47,4 +48,10 @@ class TestViews(TestCase):
     def test_delete_image_view(self):
         response = self.client.get(reverse('delete_image', args=[self.image.id]))
         self.assertEqual(response.status_code, 200)
+
+    def test_generate_expiring_link_view(self):
+        response = self.client.get(reverse('generate_exp_link', args=['arg1', 'arg2']))
+        self.assertEqual(response.status_code, 200)
+
+
 

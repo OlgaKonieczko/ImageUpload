@@ -191,7 +191,7 @@ class GenerateExpiringLinkAPIView(APIView):
         if not user_tier.generate_expiring_link:
             return Response({'message': 'This user is not allowed to generate expiring links'}, status=403) 
         else:
-            return Response({'message': 'Please insert seconds between 300 and 30000 for expiring list duration'}, status=200)     
+            return Response({'message': 'Please insert seconds between 300 and 30000 for expiring link duration'}, status=200)     
 
     def post(self, request, pk, size):
         owner = self.request.user
@@ -199,7 +199,7 @@ class GenerateExpiringLinkAPIView(APIView):
         seconds = request.data.get('seconds', None)
         expiration_seconds = int(seconds) if seconds is not None else 0
         token = ExpiringLink.generate_link(image, expiration_seconds)
-        link = f"exp_link/{pk}/{size}?token={token}"  # Replace with your resource URL
+        link = f"exp_link/{pk}/{size}?token={token}"  
         return JsonResponse({'link': link})
          
 
