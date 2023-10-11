@@ -5,7 +5,6 @@ from django.utils import timezone
 import secrets
 import uuid
 
-# Create your models here.
 class Size(models.Model):
     size = models.IntegerField(null=False, blank=False)
     description  = models.TextField(blank = True, null = True)
@@ -30,7 +29,7 @@ class Tier(models.Model):
 class Image(models.Model):
     image = models.ImageField(blank = True, null = True, upload_to='')
     owner= models.ForeignKey(User, on_delete=models.CASCADE, blank = False, null = False)
-    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null=False, blank=False)
+    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null=True)
     description  = models.TextField(blank = True, null = True)
     title = models.CharField(max_length=200, blank = True, null = True)
     created = models.DateTimeField(auto_now_add=True)
@@ -45,7 +44,7 @@ class Profile(models.Model):
     username = models.CharField(max_length=200, null = True, blank = True)
     name = models.CharField(max_length=200, blank = True, null = True)
     email = models.EmailField(max_length=500, blank = True, null = True)
-    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null = False, blank = False) 
+    tier = models.ForeignKey(Tier, on_delete=models.SET_NULL, null=True) 
     id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
 
     def __str__(self):

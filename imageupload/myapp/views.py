@@ -1,4 +1,4 @@
-from django.http import HttpResponseRedirect, HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseRedirect
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -9,13 +9,47 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import Image, Profile, ExpiringLink
-from .utils import manage_images
+from .utils import manage_images, gen_links
 from .serializers import LoginUserSerializer, UploadImageSerializer, UpdateImageSerializer, GnerateExpiringLinkSerializer
 from PIL import Image as PILImage
 
-# Create your views here.
+        
 def image(request, pk, size):
 	return manage_images(request, size, pk)
+
+@api_view(['GET'])
+@login_required
+def images(request):
+    images = Image.objects.filter(owner=request.user)
+    tier = Profile.objects.get(user=request.user).tier
+    sizes = tier.sizes.all().values_list('size', flat=True)
+    image_list = []
+    for image in images:
+        image_list.append(f"IMAGE: {image.title} | Image description: {image.description} | Timestamp: {image.created} | Image ID: {image.id}") 
+        image_list.append(gen_links(image, sizes, tier))
+    return Response(image_list)
+
+@api_view(['GET','DELETE'])
+@login_required(login_url='login')
+def delete_image(request, pk):
+    try:
+        image = Image.objects.get(id=pk)
+    except Image.DoesNotExist:
+        return Response({'message': 'Image not found'}, status=404)
+
+    if request.user != image.owner:
+        return Response("You do not have permission to delete this image", status=403)
+    else:
+        image.delete()
+        return Response({'message': 'Image deleted successfully.'})
+
+def validate_expiring_link(request, pk, size):
+    token = request.GET.get('token', None)
+    if token:
+        expiring_link = ExpiringLink.objects.filter(token=token).first()
+        if expiring_link and expiring_link.expiration_timestamp > timezone.now():
+            return manage_images(request, size, pk)
+    return Response({'message': 'Invalid or expired link'}, status=400)
 
 class loginUserAPIView(APIView):
 	serializer_class = LoginUserSerializer
@@ -55,19 +89,6 @@ class UserLogoutViewAPI(APIView):
 	def get(self, request):
 		logout(request)
 		return Response({'message': 'Logged out successfully.'}, status=200 )
-	
-@api_view(['GET'])
-@login_required
-def images(request):
-    # Retrieve a list images
-    images = Image.objects.filter(owner=request.user)
-    image_list = []
-    # # Create list with user images
-    for image in images:
-        image_list.append(f"Image: {image.title} | Image description: {image.description} | Timestamp: {image.created} | Image ID: {image.id}") 
-    # Return the plain text response
-    return Response(image_list, status=200)
-
 
 class UploadImageAPIView(APIView):
     serializer_class = UploadImageSerializer
@@ -82,7 +103,7 @@ class UploadImageAPIView(APIView):
         sizes = tier.sizes.all().values_list('size', flat=True)
         accepted_formats = ('JPEG', 'PNG')
         links=[]
-        #check if file is inserted
+
         if not image:
             return Response({'message': 'Please insert an image!'}, status=400)
         
@@ -92,25 +113,12 @@ class UploadImageAPIView(APIView):
         except:
             return Response({'message': 'Unsupported image format!'}, status=400)
         
-        #check if inserted image is in accepted
         if open_image.format not in accepted_formats:
             return Response({'message': 'Unsupported image format!'}, status=400)
         
         image_obj = Image.objects.create(owner=owner, image=image, title=title, description=description, tier=tier)
-
-        if tier.generate_expiring_link:
-            for size in sizes:
-                link = f"Your link for {'original' if size == 0 else f'{size}px'} image: images/{image_obj.id}/{size}"
-                links.append(link)
-                link = f"To generate expiring link for {'original' if size == 0 else f'{size}px'} image access: generate_exp_link/{image_obj.id}/{size}"
-                links.append(link)
-        else:
-            for size in sizes:
-                link = f"Your link for {'original' if size == 0 else f'{size}px'} image: images/{image_obj.id}/{size}"
-                links.append(link)
-        
+        links = gen_links(image_obj, sizes, tier)
         return Response({'message': links})
-
 
 class UpdateImageAPIView(APIView):
     serializer_class = UpdateImageSerializer
@@ -120,7 +128,7 @@ class UpdateImageAPIView(APIView):
             return Image.objects.get(pk=pk)
         except Image.DoesNotExist:
             return None
-        
+    
     def get(self, request, pk):
         image_obj = self.get_object(pk)
         if not image_obj:
@@ -129,7 +137,6 @@ class UpdateImageAPIView(APIView):
         if request.user != image_obj.owner:
             return Response({'message': 'You do not have permission to view this image.'}, status=403)
         
-        # Serialize the existing image object and include it in the response
         serializer = self.serializer_class(image_obj)
         return Response(serializer.data)
     
@@ -161,25 +168,8 @@ class UpdateImageAPIView(APIView):
         if description:
             image_obj.description = description
         image_obj.save()
-
         return Response({'message': 'Image updated successfully.'})
-
-
-@api_view(['GET'])
-@login_required(login_url='login')
-def deleteImage(request, pk):
-    try:
-        image = Image.objects.get(id=pk)
-    except Image.DoesNotExist:
-        return Response({'message': 'Image not found'}, status=404)
-
-    if request.user != image.owner:
-        return HttpResponseForbidden("You do not have permission to delete this image")
-    else:
-        image.delete()
-        return Response({'message': 'Image deleted successfully.'})
-
-
+    
 class GenerateExpiringLinkAPIView(APIView):
     serializer_class = GnerateExpiringLinkSerializer
     permission_classes = [IsAuthenticated]
@@ -199,14 +189,6 @@ class GenerateExpiringLinkAPIView(APIView):
         seconds = request.data.get('seconds', None)
         expiration_seconds = int(seconds) if seconds is not None else 0
         token = ExpiringLink.generate_link(image, expiration_seconds)
-        link = f"exp_link/{pk}/{size}?token={token}"  
-        return JsonResponse({'link': link})
+        link = f"http://127.0.0.1:8000/exp_link/{pk}/{size}?token={token}"  
+        return Response({'link': link})
          
-
-def validate_expiring_link(request, pk, size):
-    token = request.GET.get('token', None)
-    if token:
-        expiring_link = ExpiringLink.objects.filter(token=token).first()
-        if expiring_link and expiring_link.expiration_timestamp > timezone.now():
-            return manage_images(request, size, pk)
-    return JsonResponse({'message': 'Invalid or expired link'}, status=400)

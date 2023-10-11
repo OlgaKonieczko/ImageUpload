@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 from django.urls import reverse, resolve
-from myapp.views import image, images, deleteImage, validate_expiring_link
+from myapp.views import image, images, delete_image, validate_expiring_link
 from myapp.views import loginUserAPIView, UserLogoutViewAPI, UploadImageAPIView, UpdateImageAPIView, GenerateExpiringLinkAPIView
 
 class TestUrls(SimpleTestCase):
@@ -31,7 +31,7 @@ class TestUrls(SimpleTestCase):
 
     def test_delete_image_url_is_resolved(self):
         url = reverse('delete_image', args=['arg1'])
-        self.assertEquals(resolve(url).func, deleteImage)     
+        self.assertEquals(resolve(url).func, delete_image)     
 
     def test_generate_link_url_is_resolved(self):
         url = reverse('generate_exp_link', args=['arg1', 'arg2'])
