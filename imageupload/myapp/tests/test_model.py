@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
 from django.utils import timezone 
 from django.contrib.auth import get_user_model
-from myapp.models import Image, ExpiringLink
+from myapp.models import Image, ExpiringLink, Profile, Size, Tier
 
 
 class TestModels(TestCase):
@@ -9,6 +9,11 @@ class TestModels(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = get_user_model().objects.create_user(username='testuser', password='testpassword')
+        self.profile = Profile.objects.filter(user = self.user)
+        self.size = Size.objects.create(size = 400)
+        self.tier = Tier.objects.create(tier='Enterprise', generate_expiring_link = True)
+        self.profile.tier = self.tier
+        self.tier.sizes.set([self.size])
         self.image = Image.objects.create(
             owner=self.user,
             title='Test Image',

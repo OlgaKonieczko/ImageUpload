@@ -56,7 +56,6 @@ class loginUserAPIView(APIView):
 	authentication_classes = [SessionAuthentication]
 	permission_classes = [AllowAny]
      
-	# User is already logged
 	def get(self, request):
 		if request.user.is_authenticated:
 			return HttpResponseRedirect('/images')

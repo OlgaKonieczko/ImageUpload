@@ -9,6 +9,8 @@ def createProfile(sender, instance, created, **kwargs):
         user = instance
         profile = Profile.objects.create(
             user = user,
+            username = user,
+            name = user,
             tier = Tier.objects.get(tier='Basic')
         )
 
@@ -35,7 +37,7 @@ def updateImage(sender, instance, created, **kwargs):
                 image.save()
 
 
-post_save.connect(createProfile, sender=User)
+# post_save.connect(createProfile, sender=User)
 post_save.connect(updateProfile, sender=Profile)
 post_save.connect(updateImage, sender=Profile)
 post_delete.connect(deleteUser, sender=Profile)    

@@ -17,7 +17,7 @@ class TestViews(TestCase):
         self.size = Size.objects.create(size = 400)
         self.tier = Tier.objects.create(tier='Enterprise', generate_expiring_link = True)
         self.tier.sizes.set([self.size])
-        self.profile = Profile.objects.create(user=self.user, tier=self.tier)
+        self.profile = Profile.objects.create(user = self.user, tier = self.tier)
         self.link = ExpiringLink.objects.create(
             token='test_token',
             expiration_timestamp=timezone.now() + timezone.timedelta(hours=1), 

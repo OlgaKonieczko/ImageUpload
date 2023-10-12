@@ -19,7 +19,7 @@ class Tier(models.Model):
     description  = models.TextField(blank = True, null = True)
     created = models.DateTimeField(auto_now_add=True)
     id = models.UUIDField(default=uuid.uuid4, unique=True, primary_key=True, editable=False)
-    sizes = models.ManyToManyField(Size, blank = True)  
+    sizes = models.ManyToManyField(Size)  
     generate_expiring_link = models.BooleanField(default=False)
     
     def __str__(self):
